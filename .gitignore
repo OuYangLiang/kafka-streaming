@@ -1,0 +1,12 @@
+target
+build
+.classpath
+.project
+.settings
+.DS_Store
+kafka-streaming.iml
+kafka-streaming.ipr
+kafka-streaming.iws
+computer/computer.iml
+source/source.iml
+sink/sink.iml
