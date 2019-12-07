@@ -20,12 +20,10 @@ public class Statistics implements Serializable {
     private Long numOfOrders;
     private BigDecimal orderAmt;
     private Long numOfOrderedCustomers;
-    private Set<Integer> orderedCustId;
 
     public Statistics() {
         this.setNumOfOrders(0L);
         this.setOrderAmt(BigDecimal.ZERO);
-        this.orderedCustId = new HashSet<>();
     }
 
     public String getMinute() {
@@ -53,19 +51,11 @@ public class Statistics implements Serializable {
     }
 
     public Long getNumOfOrderedCustomers() {
-        if (null == numOfOrderedCustomers) {
-            return (long) this.orderedCustId.size();
-        } else {
-            return numOfOrderedCustomers;
-        }
+        return numOfOrderedCustomers;
     }
 
     public void setNumOfOrderedCustomers(Long numOfOrderedCustomers) {
         this.numOfOrderedCustomers = numOfOrderedCustomers;
-    }
-
-    public void addCust(int custId) {
-        this.orderedCustId.add(custId);
     }
 
     public String json() {

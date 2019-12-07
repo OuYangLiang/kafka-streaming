@@ -1,7 +1,11 @@
 package com.personal.oyl.sample.streaming.computer;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -9,9 +13,17 @@ import java.util.Set;
  * @since 2019-09-04
  */
 public class StatisticsAccumulator implements Serializable {
+    private transient static final Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd HH:mm:ss").create();
+
     private Long numOfOrders;
     private BigDecimal orderAmt;
     private Set<Integer> orderedCustId;
+
+    public StatisticsAccumulator() {
+        this.setNumOfOrders(0L);
+        this.setOrderAmt(BigDecimal.ZERO);
+        this.setOrderedCustId(new HashSet<>());
+    }
 
     public Long getNumOfOrders() {
         return numOfOrders;
@@ -47,5 +59,13 @@ public class StatisticsAccumulator implements Serializable {
             statistics.setNumOfOrderedCustomers(0L);
         }
         return statistics;
+    }
+
+    public String json() {
+        return gson.toJson(this);
+    }
+
+    public static StatisticsAccumulator fromJson(String json) {
+        return gson.fromJson(json, StatisticsAccumulator.class);
     }
 }

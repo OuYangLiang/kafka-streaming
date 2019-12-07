@@ -1,6 +1,6 @@
 package com.personal.oyl.sample.streaming.computer;
 
-import com.personal.oyl.sample.streaming.computer.serdes.StatisticsSerde;
+import com.personal.oyl.sample.streaming.computer.serdes.StatisticsAccumulatorSerde;
 import com.personal.oyl.sample.streaming.computer.serdes.UserStatisticsSerde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
@@ -51,10 +51,10 @@ public class StreamingComputer {
         KStream<Integer, String> stream = builder.stream("order_queue",
                 Consumed.with(Serdes.Integer(), Serdes.String()));
 
-        // 任意时刻，某客户在5分钟内的下单量、下单金额，实时查询
+        // 任意时刻，某客户在某分钟内的下单量、下单金额，实时查询
         stream.groupByKey().windowedBy(TimeWindows
-                    .of(Duration.ofMinutes(5))
-                    .advanceBy(Duration.ofMinutes(1))
+                    .of(Duration.ofMinutes(1))
+//                    .advanceBy(Duration.ofMinutes(1))
                     .grace(Duration.ofSeconds(10))
                 ).aggregate(
                     UserStatistics::new,
@@ -73,7 +73,8 @@ public class StreamingComputer {
                         statistics.setCustId(k.key());
                         statistics.setOrderAmt(v.getOrderAmt());
                         statistics.setNumOfOrders(v.getNumOfOrders());
-                        statistics.setMinute(formatTsStart(k.window().start()) + "~" + formatTsEnd(k.window().end()));
+//                        statistics.setMinute(formatTsStart(k.window().start()) + "~" + formatTsEnd(k.window().end()));
+                        statistics.setMinute(formatTs(k.window().start()));
                         return statistics.json();
                     }
                 ).suppress(Suppressed.untilWindowCloses(Suppressed.BufferConfig.unbounded()))
@@ -81,30 +82,28 @@ public class StreamingComputer {
                 .map((k, v) -> KeyValue.pair(null, v))
                 .to("user_statistics", Produced.with(null, Serdes.String()));
 
-        // 任意时刻，5分钟内的下单量、下单金额，下单客户数，实时查询
+        // 任意时刻，某分钟内的下单量、下单金额，下单客户数，实时查询
         stream.groupBy((k,v) -> 1, Grouped.with(Serdes.Integer(), Serdes.String())).windowedBy(TimeWindows
-                .of(Duration.ofMinutes(5))
-                .advanceBy(Duration.ofMinutes(1))
+                .of(Duration.ofMinutes(1))
+//                .advanceBy(Duration.ofMinutes(1))
                 .grace(Duration.ofSeconds(10))
         ).aggregate(
-                Statistics::new,
+                StatisticsAccumulator::new,
                 (k, v, statistics) -> {
                     Order order = Order.fromJson(v);
-                    Statistics rlt = new Statistics();
+                    StatisticsAccumulator rlt = new StatisticsAccumulator();
                     rlt.setNumOfOrders(statistics.getNumOfOrders() + 1);
                     rlt.setOrderAmt(statistics.getOrderAmt().add(order.getPayAmt()));
-                    rlt.addCust(order.getCustId());
+                    rlt.getOrderedCustId().add(order.getCustId());
+                    rlt.getOrderedCustId().addAll(statistics.getOrderedCustId());
                     return rlt;
                 },
-                Materialized.<Integer, Statistics, WindowStore<Bytes, byte[]>>as("aggregated-globally").withValueSerde(new StatisticsSerde())
+                Materialized.<Integer, StatisticsAccumulator, WindowStore<Bytes, byte[]>>as("aggregated-globally").withValueSerde(new StatisticsAccumulatorSerde())
         ).mapValues(
                 (k,v) -> {
-                    Statistics statistics = new Statistics();
-                    statistics.setOrderAmt(v.getOrderAmt());
-                    statistics.setNumOfOrders(v.getNumOfOrders());
-                    statistics.setNumOfOrderedCustomers(v.getNumOfOrderedCustomers());
-                    statistics.setMinute(formatTsStart(k.window().start()) + "~" + formatTsEnd(k.window().end()));
-                    return statistics.json();
+                    Statistics rlt = v.toStatistics();
+                    rlt.setMinute(formatTs(k.window().start()));
+                    return rlt.json();
                 }
         ).suppress(Suppressed.untilWindowCloses(Suppressed.BufferConfig.unbounded()))
                 .toStream()
@@ -130,6 +129,14 @@ public class StreamingComputer {
         props.put(StreamsConfig.PROCESSING_GUARANTEE_CONFIG, StreamsConfig.EXACTLY_ONCE);
 
         return props;
+    }
+
+    private String formatTs(long ts) {
+        Calendar c = Calendar.getInstance();
+        c.setTimeInMillis(ts);
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        return sdf.format(c.getTime());
     }
 
     private String formatTsStart(long ts) {

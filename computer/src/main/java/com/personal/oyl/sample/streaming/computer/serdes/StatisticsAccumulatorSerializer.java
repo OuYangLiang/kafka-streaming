@@ -1,6 +1,7 @@
 package com.personal.oyl.sample.streaming.computer.serdes;
 
 import com.personal.oyl.sample.streaming.computer.Statistics;
+import com.personal.oyl.sample.streaming.computer.StatisticsAccumulator;
 import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.Serializer;
 
@@ -11,7 +12,7 @@ import java.util.Map;
  * @author OuYang Liang
  * @since 2019-12-04
  */
-public class StatisticsSerializer implements Serializer<Statistics> {
+public class StatisticsAccumulatorSerializer implements Serializer<StatisticsAccumulator> {
     private static final String encoding = "UTF8";
 
     @Override
@@ -20,7 +21,7 @@ public class StatisticsSerializer implements Serializer<Statistics> {
     }
 
     @Override
-    public byte[] serialize(String topic, Statistics data) {
+    public byte[] serialize(String topic, StatisticsAccumulator data) {
 
         if (null == data) {
             return null;
@@ -29,7 +30,7 @@ public class StatisticsSerializer implements Serializer<Statistics> {
         try {
             return data.json().getBytes(encoding);
         } catch (UnsupportedEncodingException e) {
-            throw new SerializationException("Error when serializing Statistics to byte[] due to unsupported encoding " + encoding);
+            throw new SerializationException("Error when serializing StatisticsAccumulator to byte[] due to unsupported encoding " + encoding);
         }
     }
 
